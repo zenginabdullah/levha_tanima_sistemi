@@ -30,6 +30,7 @@ def create_train_data(train_data_dir, num_classes,
             
             image_path = os.path.join(path, image)
             # Resim okunarak bir diziye aktarılıyor
+            print(f"Trying to read image from: {image_path}")
             image_array = cv2.imread(image_path)
             # Resim yeniden boyutlandırılıyor.
             image_array = cv2.resize(image_array, (resize_row, resize_col))
@@ -49,10 +50,10 @@ def create_train_data(train_data_dir, num_classes,
     y_train = to_categorical(y_train, num_classes)
     y_val = to_categorical(y_val, num_classes)
     
-    np.save('x_train.npy', x_train)
-    np.save('y_train.npy', y_train)
-    np.save('x_val.npy', x_val)
-    np.save('y_val.npy', y_val)
+    #np.save('x_train.npy', x_train)
+    #np.save('y_train.npy', y_train)
+    #np.save('x_val.npy', x_val)
+    #np.save('y_val.npy', y_val)
     
     print(f"Veri hazırlığı tamamlandı: x_train: {x_train.shape}, y_train: {y_train.shape}, x_val: {x_val.shape}, y_val: {y_val.shape}")
 
@@ -74,19 +75,20 @@ def create_test_data(dataset_dir,
 
     # Test klasöründe bulunan tüm resimleri dolaşacak döngü
     for image in images:
-      
-      image_path = os.path.join(dataset_dir, image)
-      # Resim okunarak bir diziye aktarılıyor
-      image_array = cv2.imread(image_path)
-      
-      if image_array is None:
-        print(f"Warning: Could not read image at {image_path}")
-        continue  # Skip this image and move to the next one
-      # Resim yeniden boyutlandırılıyor.
-      image_array = cv2.resize(image_array, (resize_row, resize_col))
-      
-      # Verilerin ilgili diziye eklenmesi
-      x_test.append(image_array) 
+        image_path = os.path.join(dataset_dir, image)
+        print(f"Trying to read image from: {image_path}")
+
+        image_array = cv2.imread(image_path)
+        
+        if image_array is None:
+            print(f"Warning: Could not read image at {image_path}")
+            continue
+        
+        # Resim yeniden boyutlandırılıyor.
+        image_array = cv2.resize(image_array, (resize_row, resize_col))
+        
+        # Verilerin ilgili diziye eklenmesi
+        x_test.append(image_array) 
       
     # Dizilerin numpy dizilerine dönüştürülmesi
     x_test = np.array(x_test)
@@ -104,4 +106,7 @@ def create_test_data(dataset_dir,
 
 # Fonksiyonları çağırma örneği
 create_train_data("archive/Train", 43)
-create_test_data("archive/Test", "archive/Test.csv", 43)
+create_test_data("archive", "archive/Test.csv", 43)
+
+#[ WARN:0@22.891] global loadsave.cpp:241 cv::findDecoder imread_('archive/Test/Test/00986.png'): can't open/read file: check file path/integrity
+#Warning: Could not read image at archive/Test/Test/00986.png
