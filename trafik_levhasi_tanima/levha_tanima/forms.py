@@ -1,5 +1,3 @@
-# levha_tanima/forms.py
-
 from django import forms
 
 class ImageUploadForm(forms.Form):
