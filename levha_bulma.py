@@ -58,8 +58,10 @@ for contour in contours:
 # Görselleştirme
 cv2.imshow('Kirmizi Mavi Filtrelenmis', filtered_result)  # Renk filtrelenmiş görüntü
 cv2.imshow('Kenarlar', edges)  # Kenar tespiti
+
 cv2.imshow("Gri Filtrelenmis", gray) # Gri filtrelenmiş görüntü
 cv2.imshow("Blurlanmis", blurred) # Blurlanmış Görüntü
+
 cv2.imshow('Sonuc', image)  # Sonuç görüntüsü
 
 cv2.waitKey(0)
