@@ -2,18 +2,32 @@ from django.shortcuts import render
 from .forms import ImageUploadForm
 from .models import UploadedImage
 from django.core.files.storage import FileSystemStorage
+from .levha_bulma import process_image
+import os
+from django.conf import settings
 
 def index(request):
-    if request.method == 'POST' and request.FILES['image']:
+    if request.method == 'POST' and 'image' in request.FILES:
         uploaded_image = request.FILES['image']
         fs = FileSystemStorage()  # Dosya sistemine kaydetmek için
         filename = fs.save(uploaded_image.name, uploaded_image)  # Resmi kaydedin
         uploaded_file_url = fs.url(filename)  # Yüklenen dosyanın URL'sini alın
+
+        # Resmin tam yolu
+        image_path = fs.path(filename)  # Dosyanın tam yolunu almak için `fs.path` kullanalım
+        processed_image_path = process_image(image_path)  # Trafik levhalarını tanıyın
+
+        # İşlenmiş resmin URL'sini alıyoruz
+        processed_image_url = fs.url(processed_image_path.split('media/')[-1])  # media/ kısmını çıkaralım
+
         return render(request, 'index.html', {
-            'form': ImageUploadForm(),  # Formu tekrar yükleyin
-            'uploaded_file_url': uploaded_file_url  # Yüklenen dosyanın URL'sini gönderin
+            'form': ImageUploadForm(),
+            'uploaded_file_url': uploaded_file_url,
+            'processed_image_url': processed_image_url  # Tanınan levhalar ile işlenmiş resmi gönderiyoruz
         })
+
     return render(request, 'index.html', {'form': ImageUploadForm()})
+
 
 def upload_image(request):
     if request.method == 'POST' and 'image' in request.FILES:
