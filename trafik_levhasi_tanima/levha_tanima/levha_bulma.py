@@ -2,21 +2,18 @@ import cv2
 import numpy as np
 import os
 from django.conf import settings
-import time
 
-def detect_signs(image_path):
+def process_image(image_path):
     # Resmi yükle
     image = cv2.imread(image_path)
 
-    if image is None:
-        raise ValueError("Resim dosyası yüklenemedi.")  # Hatalı resim kontrolü
-
-    # Renk filtreleme: Kırmızı ve Mavi renkler için HSV aralıkları
+    # 1. Renk filtreleme: Kırmızı ve Mavi renkler için daha hassas HSV aralıkları
     hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    # Kırmızı rengin HSV aralıkları
+    # Kırmızı rengin HSV aralığı
     lower_red1 = np.array([0, 120, 70])
     upper_red1 = np.array([10, 255, 255])
+
     lower_red2 = np.array([170, 120, 70])
     upper_red2 = np.array([180, 255, 255])
 
@@ -25,49 +22,50 @@ def detect_signs(image_path):
     upper_blue = np.array([140, 255, 255])
 
     # Maskeler
-    mask_red = cv2.bitwise_or(cv2.inRange(hsv_image, lower_red1, upper_red1),
-                               cv2.inRange(hsv_image, lower_red2, upper_red2))
+    mask_red1 = cv2.inRange(hsv_image, lower_red1, upper_red1)
+    mask_red2 = cv2.inRange(hsv_image, lower_red2, upper_red2)
     mask_blue = cv2.inRange(hsv_image, lower_blue, upper_blue)
+
+    # Maskeleri birleştir
+    mask_red = cv2.bitwise_or(mask_red1, mask_red2)
     mask = cv2.bitwise_or(mask_red, mask_blue)
 
-    # Filtrelenmiş görüntü
-    filtered_result = cv2.bitwise_and(image, image, mask=mask)
+    # Kırmızı ve mavi renk ile maskelenmiş sonucu al
+    result = cv2.bitwise_and(image, image, mask=mask)
 
-    # Gri tonlamaya çevir ve kenar tespiti (Canny)
-    gray = cv2.cvtColor(filtered_result, cv2.COLOR_BGR2GRAY)
+    # 2. Gri tonlamaya çevir ve daha güçlü bulanıklaştır
+    gray = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # 3. Kenar tespiti (Canny)
     edges = cv2.Canny(blurred, 30, 150)
 
-    # Kontur tespiti
+    # 4. Kontur tespiti
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Kontur analizi
+    # Küçük ve gereksiz konturları filtrele, sadece büyük ve anlamlı olanları al
     for contour in contours:
-        if cv2.contourArea(contour) > 1000:  # Anlamlı konturları filtrele
-            # Minimum çevre kutusunu al
-            rect = cv2.minAreaRect(contour)
-            box = cv2.boxPoints(rect)
-            box = np.int64(box)
+        if cv2.contourArea(contour) > 1000:  # Alanı 1500'den büyük olanları seç
+            epsilon = 0.05 * cv2.arcLength(contour, True)  # Daha hassas kontur yaklaşımı
+            approx = cv2.approxPolyDP(contour, epsilon, True)
 
-            # Aspect Ratio (Genişlik / Yükseklik)
-            width, height = rect[1]  # rect[1] genişlik ve yüksekliği verir
-            if height == 0 or width == 0:
-                continue  # Hatalı tespit durumunda atla
-            aspect_ratio = max(width, height) / min(width, height)
+            # Eğer üç kenar varsa (üçgen)
+            if len(approx) == 3:
+                # Konturları çiz
+                cv2.drawContours(image, [approx], -1, (0, 255, 0), 3)
+                (x, y, w, h) = cv2.boundingRect(approx)
+                cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 3)
+                cv2.putText(image, "Levha", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-            # Aspect ratio ve alan kontrolü
-            if 1.0 <= aspect_ratio <= 3.0:
-                # Levhayı çiz
-                cv2.drawContours(image, [box], 0, (0, 255, 0), 3)
-                cv2.putText(image, "Levha", (int(rect[0][0]), int(rect[0][1]) - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+            # Eğer dört kenar varsa (dikdörtgen ya da kare)
+            elif len(approx) == 4:
+                cv2.drawContours(image, [approx], -1, (0, 255, 0), 3)
+                (x, y, w, h) = cv2.boundingRect(approx)
+                cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 3)
+                cv2.putText(image, "Levha", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-    # Kaydetme işlemi
-    result_image_path = os.path.join('processed_images', f'processed_{int(time.time())}.jpg')
-    output_path = os.path.join(settings.MEDIA_ROOT, result_image_path)
+    # Yüklenen resmi kaydetmek
+    processed_image_path = os.path.join(settings.MEDIA_ROOT, 'processed_image.jpg')
+    cv2.imwrite(processed_image_path, image)
 
-    # Sonuç görüntüsünü kaydet
-    cv2.imwrite(output_path, image)
-
-    # Kaydedilen resmin yolunu döndür
-    return result_image_path
+    return processed_image_path

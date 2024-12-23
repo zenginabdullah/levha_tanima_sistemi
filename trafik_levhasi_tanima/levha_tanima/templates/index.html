@@ -17,5 +17,19 @@
         <h2>Yüklenen Resim:</h2>
         <img src="{{ uploaded_file_url }}" alt="Uploaded Image" width="400">
     {% endif %}
+
+    {% if processed_image_url %}
+        <h2>İşlenen Resim:</h2>
+        <img src="{{ processed_image_url }}" alt="Processed Image" width="400">
+    {% endif %}
+
+    {% if detected_plates %}
+        <h2>Tanımlanan Levhalar:</h2>
+        <ul>
+            {% for plate in detected_plates %}
+                <li>{{ plate }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
 </body>
 </html>
