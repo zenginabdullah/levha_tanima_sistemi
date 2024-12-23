@@ -1,38 +1,76 @@
 import cv2
 import numpy as np
 import os
+from django.conf import settings
+import time
 
 def detect_signs(image_path):
+    # Resmi yükle
     image = cv2.imread(image_path)
+
+    #Renk filtreleme: Kırmızı ve Mavi renkler için HSV aralıkları
     hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    # Renk aralıkları
-    lower_red1, upper_red1 = np.array([0, 120, 70]), np.array([10, 255, 255])
-    lower_red2, upper_red2 = np.array([170, 120, 70]), np.array([180, 255, 255])
-    lower_blue, upper_blue = np.array([100, 120, 70]), np.array([140, 255, 255])
+    # Kırmızı rengin HSV aralıkları
+    lower_red1 = np.array([0, 120, 70])
+    upper_red1 = np.array([10, 255, 255])
+    lower_red2 = np.array([170, 120, 70])
+    upper_red2 = np.array([180, 255, 255])
 
-    mask_red1 = cv2.inRange(hsv_image, lower_red1, upper_red1)
-    mask_red2 = cv2.inRange(hsv_image, lower_red2, upper_red2)
+    # Mavi rengin HSV aralığı
+    lower_blue = np.array([100, 120, 70])
+    upper_blue = np.array([140, 255, 255])
+
+    # Maskeler
+    mask_red = cv2.bitwise_or(cv2.inRange(hsv_image, lower_red1, upper_red1),
+                            cv2.inRange(hsv_image, lower_red2, upper_red2))
     mask_blue = cv2.inRange(hsv_image, lower_blue, upper_blue)
-
-    mask_red = cv2.bitwise_or(mask_red1, mask_red2)
     mask = cv2.bitwise_or(mask_red, mask_blue)
-    result = cv2.bitwise_and(image, image, mask=mask)
 
-    gray = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
+    # Filtrelenmiş görüntü
+    filtered_result = cv2.bitwise_and(image, image, mask=mask)
+
+    # Gri tonlamaya çevir ve kenar tespiti (Canny)
+    gray = cv2.cvtColor(filtered_result, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blurred, 30, 150)
 
+    #Kontur tespiti
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Kontur analizi
     for contour in contours:
-        if cv2.contourArea(contour) > 1000:
-            approx = cv2.approxPolyDP(contour, 0.05 * cv2.arcLength(contour, True), True)
-            if len(approx) in [3, 4]:  # Üçgen veya dikdörtgen
-                cv2.drawContours(image, [approx], -1, (0, 255, 0), 3)
-                x, y, w, h = cv2.boundingRect(approx)
-                cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 3)
+        if cv2.contourArea(contour) > 1000:  # Anlamlı konturları filtrele
+            # Minimum çevre kutusunu al
+            rect = cv2.minAreaRect(contour)
+            box = cv2.boxPoints(rect)
+            box = np.int64(box)
 
-    result_image_path = os.path.join('media', 'uploaded_images', 'result.jpg')
-    cv2.imwrite(result_image_path, image)
+            # Aspect Ratio (Genişlik / Yükseklik)
+            width, height = rect[1]  # rect[1] genişlik ve yüksekliği verir
+            if height == 0 or width == 0:
+                continue  # Hatalı tespit durumunda atla
+            aspect_ratio = max(width, height) / min(width, height)
 
+            # Aspect ratio ve alan kontrolü
+            if 1.0 <= aspect_ratio <= 3.0:
+                # Levhayı çiz
+                cv2.drawContours(image, [box], 0, (0, 255, 0), 3)
+                cv2.putText(image, "Levha", (int(rect[0][0]), int(rect[0][1]) - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+    # Görselleştirme
+    cv2.imshow('Kirmizi Mavi Filtrelenmis', filtered_result)  # Renk filtrelenmiş görüntü
+    cv2.imshow('Kenarlar', edges)  # Kenar tespiti
+    cv2.imshow("Gri Filtrelenmis", gray) # Gri filtrelenmiş görüntü
+    cv2.imshow("Blurlanmis", blurred) # Blurlanmış Görüntü
+    cv2.imshow('Sonuc', image)  # Sonuç görüntüsü
+
+    result_image_path = os.path.join('processed_images', f'processed_{int(time.time())}.jpg')
+    output_path = os.path.join(settings.MEDIA_ROOT, result_image_path)
+    cv2.imwrite(output_path, image)
+    
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
     return result_image_path
