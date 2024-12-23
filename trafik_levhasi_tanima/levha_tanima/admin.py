@@ -1,7 +1,4 @@
-
 from django.contrib import admin
-from .models import Image
+from .models import UploadedImage
 
-@admin.register(Image)
-class ImageAdmin(admin.ModelAdmin):
-    list_display = ('image', 'uploaded_at')
+admin.site.register(UploadedImage)

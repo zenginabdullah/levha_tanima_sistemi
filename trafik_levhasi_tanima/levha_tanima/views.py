@@ -1,36 +1,32 @@
 from django.shortcuts import render
-from django.core.files.storage import FileSystemStorage
-from django.conf import settings
 from .forms import ImageUploadForm
-from .levha_bulma import detect_signs  # Levha tanıma fonksiyonunuz
-import os
+from .models import UploadedImage
+from django.core.files.storage import FileSystemStorage
 
 def index(request):
-    form = ImageUploadForm()
-    return render(request, 'index.html', {'form': form})
+    if request.method == 'POST' and request.FILES['image']:
+        uploaded_image = request.FILES['image']
+        fs = FileSystemStorage()  # Dosya sistemine kaydetmek için
+        filename = fs.save(uploaded_image.name, uploaded_image)  # Resmi kaydedin
+        uploaded_file_url = fs.url(filename)  # Yüklenen dosyanın URL'sini alın
+        return render(request, 'index.html', {
+            'form': ImageUploadForm(),  # Formu tekrar yükleyin
+            'uploaded_file_url': uploaded_file_url  # Yüklenen dosyanın URL'sini gönderin
+        })
+    return render(request, 'index.html', {'form': ImageUploadForm()})
 
 def upload_image(request):
     if request.method == 'POST' and 'image' in request.FILES:
         form = ImageUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            # Dosyayı al
-            image = form.cleaned_data['image']
-            fs = FileSystemStorage()
-            filename = fs.save(f'uploaded_images/{image.name}', image)
-            uploaded_file_url = fs.url(filename)
-
-            # Levha tanıma işlemi
-            result_image_path = detect_signs(os.path.join(settings.MEDIA_ROOT, filename))
-            
-            # Sonuçları döndür
+            form.save()  # Veritabanına kaydediyoruz
+            uploaded_file_url = form.instance.image.url  # Yüklenen dosyanın URL'si
             return render(request, 'index.html', {
                 'form': form,
-                'uploaded_file_url': uploaded_file_url,
-                'result_image_url': f'/media/{result_image_path}',  # Sonuç resminin URL'si
+                'uploaded_file_url': uploaded_file_url
             })
     else:
-        form = ImageUploadForm()  # Eğer form gönderilmediyse boş form göster
+        form = ImageUploadForm()  # Formu ilk defa yüklerken boş haliyle
     return render(request, 'index.html', {
-        'form': form,
+        'form': form
     })
-
