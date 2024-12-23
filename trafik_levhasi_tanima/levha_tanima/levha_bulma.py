@@ -8,7 +8,10 @@ def detect_signs(image_path):
     # Resmi yükle
     image = cv2.imread(image_path)
 
-    #Renk filtreleme: Kırmızı ve Mavi renkler için HSV aralıkları
+    if image is None:
+        raise ValueError("Resim dosyası yüklenemedi.")  # Hatalı resim kontrolü
+
+    # Renk filtreleme: Kırmızı ve Mavi renkler için HSV aralıkları
     hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
     # Kırmızı rengin HSV aralıkları
@@ -23,7 +26,7 @@ def detect_signs(image_path):
 
     # Maskeler
     mask_red = cv2.bitwise_or(cv2.inRange(hsv_image, lower_red1, upper_red1),
-                            cv2.inRange(hsv_image, lower_red2, upper_red2))
+                               cv2.inRange(hsv_image, lower_red2, upper_red2))
     mask_blue = cv2.inRange(hsv_image, lower_blue, upper_blue)
     mask = cv2.bitwise_or(mask_red, mask_blue)
 
@@ -35,7 +38,7 @@ def detect_signs(image_path):
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blurred, 30, 150)
 
-    #Kontur tespiti
+    # Kontur tespiti
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     # Kontur analizi
@@ -59,18 +62,12 @@ def detect_signs(image_path):
                 cv2.putText(image, "Levha", (int(rect[0][0]), int(rect[0][1]) - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
-    # Görselleştirme
-    cv2.imshow('Kirmizi Mavi Filtrelenmis', filtered_result)  # Renk filtrelenmiş görüntü
-    cv2.imshow('Kenarlar', edges)  # Kenar tespiti
-    cv2.imshow("Gri Filtrelenmis", gray) # Gri filtrelenmiş görüntü
-    cv2.imshow("Blurlanmis", blurred) # Blurlanmış Görüntü
-    cv2.imshow('Sonuc', image)  # Sonuç görüntüsü
-
+    # Kaydetme işlemi
     result_image_path = os.path.join('processed_images', f'processed_{int(time.time())}.jpg')
     output_path = os.path.join(settings.MEDIA_ROOT, result_image_path)
+
+    # Sonuç görüntüsünü kaydet
     cv2.imwrite(output_path, image)
-    
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    
+
+    # Kaydedilen resmin yolunu döndür
     return result_image_path
